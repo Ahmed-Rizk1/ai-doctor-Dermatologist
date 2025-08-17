@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Doctor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body class="min-h-screen bg-gray-900 text-gray-300 font-sans">
+
+<div class="flex justify-end mb-4 p-4">
+    <button id="theme-toggle" class="px-4 py-2 bg-gray-700 text-gray-300 rounded hover:bg-gray-600 transition-all">
+        تبديل الثيم
+    </button>
+</div>
+
+<div class="container mx-auto p-6">
+    <h1 class="text-4xl font-bold text-purple-300 mb-8 text-center shadow-md">
+        دكتور جلدية قد الدنيا
+    </h1>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Upload Image Card -->
+        <div class="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20">
+            <h2 class="text-xl font-semibold text-purple-400 mb-4">رفع الصورة</h2>
+            <button id="upload-btn" class="w-full py-3 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-md transition-all">
+                اضغط للرفع
+            </button>
+            <input type="file" id="image-upload" accept="image/*" class="hidden" />
+            <div id="image-container" class="hidden mt-4">
+                <img id="display-image" src="" alt="Uploaded image" class="w-full rounded-lg shadow-lg" />
+            </div>
+        </div>
+
+        <!-- Ask Question Card -->
+        <div class="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20">
+            <h2 class="text-xl font-semibold text-blue-400 mb-4">سؤال عن الحالة</h2>
+            <textarea id="query-input" rows="4" placeholder="أدخل سؤالك عن الصورة"
+                class="w-full p-3 bg-gray-800 text-gray-300 rounded-lg shadow"></textarea>
+            <button id="submit-query" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg mt-3 transition-all">
+                إرسال
+            </button>
+        </div>
+    </div>
+
+    <!-- Initial Analysis -->
+    <div class="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20 mb-6">
+        <h2 class="text-xl font-semibold text-green-400">التحليل الأولي</h2>
+        <div id="initial-analysis" class="mt-4 space-y-4"></div>
+    </div>
+
+    <!-- Interactive Chat -->
+    <div class="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20 mb-6">
+        <h2 class="text-xl font-semibold text-yellow-400">كمل معايا هنا</h2>
+        <div id="chat-container" class="mt-4 space-y-3 max-h-64 overflow-y-auto p-2 bg-gray-800 rounded"></div>
+        <textarea id="chat-input" rows="2" placeholder="أكتب ردك هنا"
+            class="w-full p-2 mt-2 bg-gray-700 text-gray-300 rounded"></textarea>
+        <button id="chat-submit" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg mt-2 transition-all">
+            إرسال
+        </button>
+    </div>
+
+    <!-- Final Report -->
+    <div id="final-report-container" class="hidden bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20">
+        <h2 class="text-xl font-semibold text-purple-300">التقرير النهائي</h2>
+        <div id="final-report" class="mt-4 space-y-4"></div>
+    </div>
+
+    <!-- Error Message -->
+    <div id="error-container" class="hidden mt-8 p-4 bg-red-500 text-white rounded">
+        <p id="error-text"></p>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadBtn = document.getElementById('upload-btn');
+    const imageUpload = document.getElementById('image-upload');
+    const displayImage = document.getElementById('display-image');
+    const imageContainer = document.getElementById('image-container');
+
+    const queryInput = document.getElementById('query-input');
+    const submitQuery = document.getElementById('submit-query');
+
+    const initialAnalysisDiv = document.getElementById('initial-analysis');
+
+    const chatContainer = document.getElementById('chat-container');
+    const chatInput = document.getElementById('chat-input');
+    const chatSubmit = document.getElementById('chat-submit');
+
+    const finalReportContainer = document.getElementById('final-report-container');
+    const finalReportDiv = document.getElementById('final-report');
+
+    const errorContainer = document.getElementById('error-container');
+    const errorText = document.getElementById('error-text');
+
+    let session_id = null;
+
+    uploadBtn.addEventListener('click', () => imageUpload.click());
+
+    imageUpload.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                displayImage.src = e.target.result;
+                imageContainer.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    submitQuery.addEventListener('click', async () => {
+        const image = imageUpload.files[0];
+        const query = queryInput.value;
+
+        if (!image || !query) {
+            showError('يرجى رفع الصورة وإدخال السؤال.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('image', image);
+        formData.append('query', query);
+
+        try {
+            submitQuery.disabled = true;
+            submitQuery.textContent = 'جارٍ التحليل...';
+
+            const res = await fetch("/upload_and_query", { method: "POST", body: formData });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.detail || 'حدث خطأ');
+
+            session_id = data.session_id;
+            displayInitialAnalysis(data.answer);
+
+            chatContainer.innerHTML = '';
+            finalReportContainer.classList.add('hidden');
+            errorContainer.classList.add('hidden');
+
+        } catch (err) {
+            showError(err.message);
+        } finally {
+            submitQuery.disabled = false;
+            submitQuery.textContent = 'إرسال';
+        }
+    });
+
+    function displayInitialAnalysis(answer) {
+        const lines = answer.split('\n').filter(line => line.trim() !== '');
+        initialAnalysisDiv.innerHTML = '';
+        lines.forEach(line => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2';
+            div.innerHTML = `<span class="text-green-300">✔️</span> <span>${line}</span>`;
+            initialAnalysisDiv.appendChild(div);
+        });
+    }
+
+    chatSubmit.addEventListener('click', async () => {
+        const msg = chatInput.value;
+        if (!msg) return;
+
+        const formData = new FormData();
+        formData.append('session_id', session_id);
+        formData.append('user_message', msg);
+
+        try {
+            chatSubmit.disabled = true;
+            chatSubmit.textContent = 'جارٍ الإرسال...';
+
+            const res = await fetch("/interactive_chat", { method: "POST", body: formData });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.detail || 'حدث خطأ');
+
+            displayChatMessage('أنت', msg);
+            displayChatMessage('الطبيب', data.answer);
+
+            chatInput.value = '';
+
+            // عرض التقرير النهائي بشكل منظم مع أيقونات
+            if (data.answer.toLowerCase().includes("تقرير نهائي")) {
+                displayFinalReport(data.answer);
+            }
+
+        } catch (err) {
+            showError(err.message);
+        } finally {
+            chatSubmit.disabled = false;
+            chatSubmit.textContent = 'إرسال';
+        }
+    });
+
+    function displayChatMessage(sender, message) {
+        const div = document.createElement('div');
+        div.className = 'p-2 rounded bg-gray-700';
+        div.innerHTML = `<strong>${sender}:</strong> ${marked.parseInline(message)}`;
+        chatContainer.appendChild(div);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function displayFinalReport(report) {
+        const lines = report.split('\n').filter(line => line.trim() !== '');
+        finalReportDiv.innerHTML = '';
+
+        lines.forEach(line => {
+            const div = document.createElement('div');
+            div.className = 'p-2 flex items-center gap-2 rounded';
+
+            let icon = '📝';
+            if (line.toLowerCase().includes('نصيحة')) icon = '✔️';
+            else if (line.toLowerCase().includes('علاج') || line.toLowerCase().includes('دواء')) icon = '💊';
+            else if (line.toLowerCase().includes('تنبيه') || line.toLowerCase().includes('تحذير')) icon = '⚠️';
+            else if (line.toLowerCase().includes('تعليمات')) icon = '📌';
+
+            div.innerHTML = `<span class="text-purple-300">${icon}</span> <span>${marked.parseInline(line)}</span>`;
+            finalReportDiv.appendChild(div);
+        });
+
+        finalReportContainer.classList.remove('hidden');
+    }
+
+    function showError(msg) {
+        errorText.textContent = msg;
+        errorContainer.classList.remove('hidden');
+    }
+
+    const themeToggle = document.getElementById('theme-toggle');
+    themeToggle.addEventListener('click', () => {
+        const body = document.body;
+        if (body.classList.contains('bg-gray-900')) {
+            body.classList.remove('bg-gray-900', 'text-gray-300');
+            body.classList.add('bg-white', 'text-gray-900');
+        } else {
+            body.classList.remove('bg-white', 'text-gray-900');
+            body.classList.add('bg-gray-900', 'text-gray-300');
+        }
+    });
+});
+</script>
+</body>
+</html>
