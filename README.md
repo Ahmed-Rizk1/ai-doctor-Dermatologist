@@ -9,7 +9,12 @@ A video walkthrough of the application's core features is available below.
 [Watch the Full Demo](demo.mp4)
 
 ---
+![demo image](1.png)
+![demo image](2.png)
+![demo image](3.png)
+![demo image](4.png)
 
+---
 ### Features
 
 -   **Image Upload**: Users can upload an image of a skin condition.
