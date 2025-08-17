@@ -1,4 +1,3 @@
-# نفس imports والبداية
 from fastapi import FastAPI, File, UploadFile, Form, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -97,7 +96,6 @@ async def upload_and_query(image: UploadFile = File(...), query: str = Form(...)
         raise HTTPException(status_code=500, detail=f"Unexpected Error: {str(e)}")
 
 
-# الجزء المتعلق بالشات التفاعلي فقط
 @app.post("/interactive_chat")
 async def interactive_chat(
     session_id: str = Form(...),
@@ -143,7 +141,6 @@ async def interactive_chat(
             answer = result["choices"][0]["message"]["content"]
             chat_history.append({"user_message": user_message, "bot_answer": answer})
 
-            # إذا كان التقرير النهائي موجود ضمن الرد، أضف علم التصنيف
             is_final = "تقرير نهائي" in answer.lower()
 
             return JSONResponse(status_code=200, content={"answer": answer, "final": is_final})
@@ -158,7 +155,7 @@ async def interactive_chat(
         raise HTTPException(status_code=500, detail=f"Unexpected Error: {str(e)}")
 
 
-
+# main
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
